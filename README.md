@@ -419,6 +419,8 @@ Phase 5 có schema, temporal mapping, SQLite FTS5 store, lexical search, OCR/ASR
 
 Hướng dẫn audit, pilot, build store, API/UI và benchmark nằm tại [`docs/PHASE5_TESTING.md`](docs/PHASE5_TESTING.md). Snapshot tiến độ và blocker nằm tại [`reports/Phase_5_17-08-2026_1.md`](reports/Phase_5_17-08-2026_1.md).
 
+Nếu `artifacts/` bị xóa, dùng `python tools/prepare_phase5.py --data-root data --groups L21 --skip-store` để rebuild registry và NumPy index bằng pipeline thật. Khi có OCR/ASR JSONL đã review, bỏ `--skip-store` và truyền `--ocr-jsonl`/`--asr-jsonl` để build lại store; workflow không tạo evidence giả.
+
 ## Phase 6 — Local Query Planner Và Top-N Reranker
 
 Phase 6 bổ sung rule-based query decomposition chạy offline, query variants có thể xem trong UI và lightweight reranker chỉ áp dụng trên Top-N candidate. Cả planner và reranker đều opt-in; khi tắt, structured retrieval giữ đường baseline Phase 5. Hướng dẫn test tự động, test tay và benchmark before/after nằm tại [`docs/PHASE6_TESTING.md`](docs/PHASE6_TESTING.md).

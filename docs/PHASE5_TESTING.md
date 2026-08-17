@@ -2,6 +2,60 @@
 
 Phase 5 được giữ ở chế độ **opt-in**. Store OCR/ASR không tồn tại thì search mặc định Phase 3/4 vẫn hoạt động; không được diễn giải test fixture thành chất lượng model trên dữ liệu cuộc thi.
 
+## 0. Rebuild sau khi xóa toàn bộ `artifacts/`
+
+Pipeline thật của repository là:
+
+```text
+data/clip-features-32 + data/map-keyframes (+ keyframes/videos hỗ trợ)
+  -> tools/data_registry.py
+  -> artifacts/registry/data_registry.json + validation_report.json
+  -> tools/build_numpy_index.py
+  -> artifacts/indexes/l21_numpy/{vectors.npy,refs.json,metadata.json}
+  -> OCR/ASR JSONL đã chạy model, normalize và review
+  -> tools/build_phase5_store.py
+  -> Phase 5 SQLite store
+  -> tools/phase5_search.py
+```
+
+Rebuild registry và NumPy index từ `data/` mà chưa build store:
+
+```powershell
+python tools\prepare_phase5.py `
+  --data-root data --groups L21 --skip-store
+```
+
+Lệnh tương đương khi muốn chạy từng bước:
+
+```powershell
+python tools\data_registry.py `
+  --data-root data `
+  --output artifacts\registry\data_registry.json `
+  --validation-output artifacts\registry\validation_report.json
+
+python tools\build_numpy_index.py `
+  --registry artifacts\registry\data_registry.json `
+  --groups L21 `
+  --output-dir artifacts\indexes\l21_numpy
+```
+
+`vectors.npy`, `refs.json` và `metadata.json` đều do `build_numpy_index.py` tạo bằng feature/mapping thật; workflow không tạo index rỗng hoặc fake.
+
+Hiện repository **không có production full-corpus OCR/ASR extractor** tạo trực tiếp schema-compatible `ocr.jsonl`/`asr.jsonl`. `phase5_pilot.py` chỉ chạy tối đa 10 input và lưu raw model output để review. Vì vậy, nếu JSONL trong `artifacts/` cũng bị xóa, phải regenerate từ keyframe/video bằng model/config đã duyệt hoặc restore từ backup generated-artifact; workflow sẽ dừng với error rõ ràng, không tạo JSONL giả.
+
+Khi đã có reviewed JSONL, rebuild tất cả trong một lệnh:
+
+```powershell
+python tools\prepare_phase5.py `
+  --data-root data --groups L21 `
+  --ocr-jsonl D:\AIC-generated\ocr_l21.jsonl `
+  --asr-jsonl D:\AIC-generated\asr_l21.jsonl `
+  --output artifacts\phase5\manual\phase5.sqlite3 `
+  --overwrite
+```
+
+Nên lưu/backup corpus JSONL lớn ngoài `artifacts/` nếu muốn có thể xóa toàn bộ generated runtime artifacts mà không phải chạy lại model.
+
 ## 1. Chuẩn bị môi trường
 
 ```bash

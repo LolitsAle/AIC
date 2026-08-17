@@ -28,6 +28,12 @@ const enableClipInput = document.querySelector("#enable-clip");
 const enableObjectsInput = document.querySelector("#enable-objects");
 const enableAttributesInput = document.querySelector("#enable-attributes");
 const enableMetadataInput = document.querySelector("#enable-metadata");
+const enableOcrInput = document.querySelector("#enable-ocr");
+const enableAsrInput = document.querySelector("#enable-asr");
+const phase5Fields = document.querySelector("#phase5-fields");
+const ocrMinConfidenceInput = document.querySelector("#ocr-min-confidence");
+const ocrFilterModeInput = document.querySelector("#ocr-filter-mode");
+const asrFilterModeInput = document.querySelector("#asr-filter-mode");
 const objectFields = document.querySelector("#object-fields");
 const attributeFields = document.querySelector("#attribute-fields");
 const metadataFields = document.querySelector("#metadata-fields");
@@ -55,6 +61,8 @@ let activeMode = "visual";
 let activeRankingMode = "video";
 let structuredSearchAvailable = false;
 let attributeSearchAvailable = false;
+let ocrSearchAvailable = false;
+let asrSearchAvailable = false;
 const STORAGE_KEYS = {
   history: "aic_retrieval_history_v1",
   pins: "aic_retrieval_pins_v1",
@@ -138,6 +146,11 @@ function structuredConfig() {
     enable_objects: structuredSearchAvailable && enableObjectsInput.checked,
     enable_attributes: attributeSearchAvailable && enableAttributesInput.checked,
     enable_metadata: enableMetadataInput.checked,
+    enable_ocr: ocrSearchAvailable && enableOcrInput.checked,
+    enable_asr: asrSearchAvailable && enableAsrInput.checked,
+    ocr_min_confidence: ocrMinConfidenceInput.value,
+    ocr_filter_mode: ocrFilterModeInput.value,
+    asr_filter_mode: asrFilterModeInput.value,
     object_label: objectLabelInput.value.trim(),
     object_min_count: objectMinCountInput.value,
     object_position: objectPositionInput.value,
@@ -160,6 +173,8 @@ function applyStructuredConfig(config = {}) {
   enableObjectsInput.checked = Boolean(config.enable_objects);
   enableAttributesInput.checked = Boolean(config.enable_attributes);
   enableMetadataInput.checked = Boolean(config.enable_metadata);
+  enableOcrInput.checked = Boolean(config.enable_ocr);
+  enableAsrInput.checked = Boolean(config.enable_asr);
   objectLabelInput.value = config.object_label || "";
   objectMinCountInput.value = config.object_min_count || "1";
   objectPositionInput.value = config.object_position || "any";
@@ -184,14 +199,17 @@ function updateStructuredControls() {
   if (!attributeSearchAvailable && enableAttributesInput.checked) {
     enableAttributesInput.checked = false;
   }
-  for (const input of [debugModeInput, enableClipInput, enableObjectsInput, enableAttributesInput, enableMetadataInput, fusionMethodInput]) {
+  for (const input of [debugModeInput, enableClipInput, enableObjectsInput, enableAttributesInput, enableMetadataInput, enableOcrInput, enableAsrInput, fusionMethodInput]) {
     input.disabled = !enabled;
   }
   enableObjectsInput.disabled = !enabled || !structuredSearchAvailable;
   enableAttributesInput.disabled = !enabled || !attributeSearchAvailable;
+  enableOcrInput.disabled = !enabled || !ocrSearchAvailable;
+  enableAsrInput.disabled = !enabled || !asrSearchAvailable;
   objectFields.disabled = !enabled || !structuredSearchAvailable || !enableObjectsInput.checked;
   attributeFields.disabled = !enabled || !attributeSearchAvailable || !enableAttributesInput.checked;
   metadataFields.disabled = !enabled || !enableMetadataInput.checked;
+  phase5Fields.disabled = !enabled || (!enableOcrInput.checked && !enableAsrInput.checked);
   structuredNoteEl.textContent = structuredSearchAvailable || attributeSearchAvailable
     ? "Structured mode is experimental. Turning it off keeps the Phase 3 CLIP search path unchanged."
     : "Structured mode is experimental. Build local evidence stores or install image support before enabling extra channels.";
@@ -363,6 +381,12 @@ function renderEvidenceChips(container, result) {
     definitions.push({ status: evidence.metadata.status, text: evidence.metadata.status === "matched"
       ? `Metadata #${evidence.metadata.rank} · ${evidence.metadata.matched_fields.map((item) => item.field).join("+") || "matched"}`
       : `Metadata · ${evidence.metadata.status}` });
+  }
+  for (const modality of ["ocr", "asr"]) {
+    const item = evidence[modality];
+    if (!item?.enabled) continue;
+    const match = item.matches?.[0];
+    definitions.push({status:item.status, text:item.status === "matched" ? `${modality.toUpperCase()} #${item.rank} · ${match?.matched_text || match?.text_raw || "matched"}` : `${modality.toUpperCase()} · ${item.status}`});
   }
   definitions.push({ status: "matched", text: `Final #${result.rank} · RRF` });
   for (const definition of definitions) {
@@ -752,7 +776,9 @@ function neighborhoodFrameNode(frame) {
   }
   const meta = document.createElement("div");
   meta.className = "neighbor-meta";
-  meta.textContent = `#${frame.keyframe_id} · ${secondsLabel(frame.pts_time)}`;
+  const phase5 = frame.phase5_evidence || {ocr:[], asr:[]};
+  const snippets = [...phase5.ocr.map((item) => `OCR: ${item.text_raw}`), ...phase5.asr.map((item) => `ASR: ${item.text_raw}`)];
+  meta.textContent = `#${frame.keyframe_id} · ${secondsLabel(frame.pts_time)}${snippets.length ? ` · ${snippets.join(" · ")}` : ""}`;
   node.append(thumb, meta);
   return node;
 }
@@ -1177,10 +1203,14 @@ async function loadHealth() {
         { text: `${payload.metadata_documents} videos` },
         { text: payload.structured_search_available ? "objects on" : "objects off", className: payload.structured_search_available ? "is-success" : "" },
         { text: payload.attribute_search_available ? "attributes on" : "attributes off", className: payload.attribute_search_available ? "is-success" : "" },
+        { text: payload.ocr_search_available ? "OCR on" : "OCR off", className: payload.ocr_search_available ? "is-success" : "" },
+        { text: payload.asr_search_available ? "ASR on" : "ASR off", className: payload.asr_search_available ? "is-success" : "" },
         { text: translation, className: payload.translation_configured ? "is-success" : "" },
       ];
     structuredSearchAvailable = Boolean(payload.structured_search_available);
     attributeSearchAvailable = Boolean(payload.attribute_search_available);
+    ocrSearchAvailable = Boolean(payload.ocr_search_available);
+    asrSearchAvailable = Boolean(payload.asr_search_available);
     updateStructuredControls();
     healthEl.replaceChildren();
     for (const badge of badges) {
@@ -1207,6 +1237,8 @@ structuredEnabledInput.addEventListener("change", updateStructuredControls);
 enableObjectsInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 enableAttributesInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 enableMetadataInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
+enableOcrInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
+enableAsrInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 enableClipInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 debugModeInput.addEventListener("change", applyDebugPreset);
 resultsEl.addEventListener("click", (event) => {

@@ -412,3 +412,9 @@ Output được tạo dưới `artifacts/benchmarks/phase4/` và không commit. 
 Final evaluation query set cho manual review nằm ở `benchmarks/phase4_final_eval_queries_v1.json`: 30 query, chia 15 development / 15 holdout, có nhóm attribute-color để kiểm tra các query như `person wearing a red shirt`. Chỉ dùng development để tuning; holdout chỉ dùng sau khi đã chốt cấu hình.
 
 Quyết định P4.10: **HYBRID OPT-IN**. Implementation, API, UI và ablation pipeline đã hoàn thành; quality verification/default promotion vẫn chờ manual judgement. Không đổi framework, model, vector database, OCR/ASR hoặc detector.
+
+## Phase 5 — OCR/ASR Opt-In
+
+Phase 5 có schema, temporal mapping, SQLite FTS5 store, lexical search, OCR/ASR evidence trong structured RRF và timeline. Hai channel bị tắt mặc định và chỉ khả dụng khi truyền `--phase5-store` trỏ tới store đã build. Do checkout không chứa contest data/model và benchmark chưa được chấm tay, Phase 5 hiện giữ **opt-in**, không được coi là quality-verified.
+
+Hướng dẫn audit, pilot, build store, API/UI và benchmark nằm tại [`docs/PHASE5_TESTING.md`](docs/PHASE5_TESTING.md). Snapshot tiến độ và blocker nằm tại [`reports/Phase_5_17-08-2026_1.md`](reports/Phase_5_17-08-2026_1.md).

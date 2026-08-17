@@ -98,6 +98,12 @@ class RuleBasedQueryPlanner:
             reasons=tuple(reasons),
         )
 
+    def select_variants(self, plan: QueryPlan, selected: tuple[str, ...]) -> QueryPlan:
+        allowed=set(plan.variants); chosen=tuple(value for value in selected if value in allowed)
+        if not chosen:
+            chosen=(plan.original_query,)
+        return QueryPlan(**{**plan.to_dict(),"variants":chosen})
+
 
 def quoted_phrases(value: str) -> tuple[str, ...]:
     return tuple(match.strip() for match in re.findall(r'["“”]([^"“”]+)["“”]', value) if match.strip())

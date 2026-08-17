@@ -12,3 +12,4 @@ def test_phase6_controls_and_preview_are_opt_in():
     assert "/api/query-plan" in app
     assert "enable_query_planner: enableQueryPlannerInput.checked" in app
     assert "enable_reranker: enableRerankerInput.checked" in app
+    assert "data-query-variant" in app

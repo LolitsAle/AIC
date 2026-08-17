@@ -424,3 +424,5 @@ Nếu `artifacts/` bị xóa, dùng `python tools/prepare_phase5.py --data-root 
 ## Phase 6 — Local Query Planner Và Top-N Reranker
 
 Phase 6 bổ sung rule-based query decomposition chạy offline, query variants có thể xem trong UI và lightweight reranker chỉ áp dụng trên Top-N candidate. Cả planner và reranker đều opt-in; khi tắt, structured retrieval giữ đường baseline Phase 5. Hướng dẫn test tự động, test tay và benchmark before/after nằm tại [`docs/PHASE6_TESTING.md`](docs/PHASE6_TESTING.md).
+
+Reranker seed config nằm tại `configs/phase6_reranker_v1.json`. Dùng `tools/phase6_tune.py` chỉ trên development labels để sinh config đã tune, sau đó khóa cùng config cho holdout và UI bằng `--phase6-config`.

@@ -456,6 +456,9 @@ label {
   font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
+.query-plan-preview pre { margin: 0 0 8px; white-space: pre-wrap; }
+.query-variant-list { display: grid; gap: 4px; }
+
 .ranking-tabs {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(126px, 1fr));

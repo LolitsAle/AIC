@@ -146,6 +146,7 @@ function saveStoredArray(key, value) {
 }
 
 function structuredConfig() {
+  const selectedVariants = [...queryPlanPreview.querySelectorAll("input[data-query-variant]:checked")].map((input) => input.dataset.queryVariant);
   return {
     enabled: structuredEnabledInput.checked,
     enable_clip: enableClipInput.checked,
@@ -160,6 +161,7 @@ function structuredConfig() {
     enable_query_planner: enableQueryPlannerInput.checked,
     enable_reranker: enableRerankerInput.checked,
     reranker_top_n: rerankerTopNInput.value,
+    query_variants: selectedVariants.join("||"),
     object_label: objectLabelInput.value.trim(),
     object_min_count: objectMinCountInput.value,
     object_position: objectPositionInput.value,
@@ -534,7 +536,15 @@ function renderQueryPlan(plan, reranker = null) {
     `Reasons: ${(plan.reasons || []).join("; ")}`,
   ];
   if (reranker) lines.push(`Reranker: ${reranker.version} · Top-${reranker.config.top_n}`);
-  queryPlanPreview.textContent = lines.join("\n");
+  queryPlanPreview.replaceChildren();
+  const summary=document.createElement("pre"); summary.textContent=lines.join("\n"); queryPlanPreview.appendChild(summary);
+  const variants=document.createElement("div"); variants.className="query-variant-list";
+  for (const variant of plan.variants || []) {
+    const label=document.createElement("label"); label.className="check-field";
+    const input=document.createElement("input"); input.type="checkbox"; input.checked=true; input.dataset.queryVariant=variant;
+    label.append(input,document.createTextNode(` ${variant}`)); variants.appendChild(label);
+  }
+  queryPlanPreview.appendChild(variants);
 }
 
 async function previewQueryPlan() {

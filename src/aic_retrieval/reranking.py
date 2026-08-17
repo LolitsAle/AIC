@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+import json
+from dataclasses import asdict, dataclass, replace
+from pathlib import Path
 from typing import Any
 
 from aic_retrieval.query_planner import QueryPlan, normalize
@@ -23,6 +25,17 @@ class RerankerConfig:
             raise ValueError("reranker weights must not be negative")
 
 
+def load_reranker_config(path: Path) -> RerankerConfig:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("version") != RERANKER_VERSION:
+        raise ValueError(f"unsupported reranker config version: {payload.get('version')}")
+    return RerankerConfig(**payload["config"])
+
+
+def with_top_n(config: RerankerConfig, top_n: int) -> RerankerConfig:
+    return replace(config, top_n=top_n)
+
+
 def rerank_video_results(results: list[dict[str, Any]], plan: QueryPlan, config: RerankerConfig = RerankerConfig()) -> list[dict[str, Any]]:
     """Rerank only the first Top-N candidates and preserve the tail order."""
     head = results[: config.top_n]
@@ -32,7 +45,7 @@ def rerank_video_results(results: list[dict[str, Any]], plan: QueryPlan, config:
     max_score = max(abs(float(item.get("fusion_score", item.get("video_score", item.get("score", 0.0))))) for item in head) or 1.0
     reranked = []
     requested = set(plan.recommended_modalities)
-    query_tokens = set(normalize(plan.original_query).split())
+    query_tokens = set(normalize(" ".join(plan.variants)).split())
     for original_rank, item in enumerate(head, start=1):
         base = float(item.get("fusion_score", item.get("video_score", item.get("score", 0.0))))
         ranks = item.get("modality_ranks", {})
@@ -48,6 +61,10 @@ def rerank_video_results(results: list[dict[str, Any]], plan: QueryPlan, config:
             "lexical_evidence": config.lexical_evidence_weight * lexical_overlap,
             "planner_alignment": config.planner_alignment_weight * planner_alignment,
         }
+        modality_contributions = {
+            modality: config.modality_match_weight if modality in matched else 0.0
+            for modality in sorted(requested)
+        }
         rerank_score = sum(contributions.values())
         reranked.append({
             **item,
@@ -59,6 +76,7 @@ def rerank_video_results(results: list[dict[str, Any]], plan: QueryPlan, config:
                 "requested_modalities": sorted(requested),
                 "lexical_overlap": lexical_overlap,
                 "contributions": contributions,
+                "modality_contributions": modality_contributions,
             },
         })
     reranked.sort(key=lambda item: (-item["rerank_score"], item["pre_rerank_rank"], item["video_id"]))

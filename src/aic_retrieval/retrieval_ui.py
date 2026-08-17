@@ -31,7 +31,7 @@ from aic_retrieval.text_encoder import DEFAULT_CLIP_MODEL_ID, ClipTextEncoder
 from aic_retrieval.translation import ExternalTranslator, TranslationConfig
 from aic_retrieval.phase5_store import Phase5SearchService
 from aic_retrieval.query_planner import RuleBasedQueryPlanner
-from aic_retrieval.reranking import RerankerConfig, rerank_video_results, reranker_metadata
+from aic_retrieval.reranking import RerankerConfig, load_reranker_config, rerank_video_results, reranker_metadata, with_top_n
 
 
 DEFAULT_TOP_K_VIDEOS = 12
@@ -59,6 +59,7 @@ class RetrievalUiConfig:
     object_store_path: Path | None = None
     object_aliases_path: Path | None = None
     phase5_store_path: Path | None = None
+    phase6_config_path: Path | None = None
 
 
 class RetrievalUiService:
@@ -93,6 +94,9 @@ class RetrievalUiService:
         self.attribute_service = ColorAttributeService(config.repo_root, self.refs)
         self.phase5_service = Phase5SearchService(config.phase5_store_path, self.refs) if config.phase5_store_path else None
         self.query_planner = RuleBasedQueryPlanner()
+        self.reranker_config = load_reranker_config(config.phase6_config_path) if config.phase6_config_path and config.phase6_config_path.is_file() else RerankerConfig()
+        phase6_payload = json.loads(config.phase6_config_path.read_text(encoding="utf-8")) if config.phase6_config_path and config.phase6_config_path.is_file() else {}
+        self.rrf_config = RrfConfig(**phase6_payload.get("fusion", {}))
         self.structured_generator = StructuredCandidateGenerator(self.index, self.refs, self.object_service, self.metadata_docs, self.attribute_service, self.phase5_service)
 
     def search(
@@ -214,6 +218,7 @@ class RetrievalUiService:
         enable_query_planner: bool = False,
         enable_reranker: bool = False,
         reranker_top_n: int = 20,
+        query_variants: tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
         query = query.strip()
         if not query:
@@ -243,6 +248,8 @@ class RetrievalUiService:
         )
         started = time.perf_counter()
         query_plan = self.query_planner.plan(query) if enable_query_planner or enable_reranker else None
+        if query_plan is not None and query_variants is not None:
+            query_plan = self.query_planner.select_variants(query_plan, query_variants)
         encode_started = time.perf_counter()
         query_vector = self._encoder().encode_text(query) if enable_clip or enable_metadata else None
         encode_ms = (time.perf_counter() - encode_started) * 1000
@@ -251,8 +258,8 @@ class RetrievalUiService:
         candidate_ms = (time.perf_counter() - candidate_started) * 1000
         fusion_started = time.perf_counter()
         ranking_limit = min(max(top_k, reranker_top_n if enable_reranker else top_k), 50)
-        ranked = rank_video_candidates(candidate_payload, structured_query, RrfConfig(), ranking_limit, min(matched_frames_per_video, 50))
-        reranker_config = RerankerConfig(top_n=min(reranker_top_n, ranking_limit)) if enable_reranker else None
+        ranked = rank_video_candidates(candidate_payload, structured_query, self.rrf_config, ranking_limit, min(matched_frames_per_video, 50))
+        reranker_config = with_top_n(self.reranker_config, min(reranker_top_n, ranking_limit)) if enable_reranker else None
         if enable_reranker and query_plan is not None:
             assert reranker_config is not None
             ranked["video_results"] = rerank_video_results(ranked["video_results"], query_plan, reranker_config)[:top_k]
@@ -603,6 +610,7 @@ def run_server(config: RetrievalUiConfig, host: str = "127.0.0.1", port: int = 8
                     metadata_filter_mode=first(params,"metadata_filter_mode","soft"), matched_frames_per_video=parse_int(first(params,"matched_frames_per_video","5"),5),
                     ocr_filter_mode=first(params,"ocr_filter_mode","soft"), asr_filter_mode=first(params,"asr_filter_mode","soft"), ocr_min_confidence=parse_float(first(params,"ocr_min_confidence","0"),0),
                     enable_query_planner=parse_bool(first(params,"enable_query_planner","false")), enable_reranker=parse_bool(first(params,"enable_reranker","false")), reranker_top_n=parse_int(first(params,"reranker_top_n","20"),20),
+                    query_variants=tuple(item for item in first(params,"query_variants").split("||") if item) if "query_variants" in params else None,
                 )
             except Exception as exc:
                 self._error(HTTPStatus.BAD_REQUEST, str(exc)); return

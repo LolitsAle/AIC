@@ -42,6 +42,8 @@ Các query dò tối thiểu:
 
 Planner chỉ **đề xuất** modality; nó không tự bật store/model chưa được cấu hình.
 
+Sau khi preview, UI hiển thị checkbox cho từng variant. Bỏ chọn variant không mong muốn trước khi Search; nếu bỏ chọn tất cả, backend fallback về query gốc để không tạo truy vấn rỗng.
+
 ## 3. Dò reranker bằng tay
 
 Baseline, không bật Phase 6:
@@ -81,18 +83,38 @@ Tắt planner/reranker phải tái hiện baseline Phase 5; response không đư
 
 ## 4. Benchmark before/after
 
-Điền `baseline_results` từ một frozen Phase 5 run và `expected_video_ids` đã chấm tay trong `benchmarks/phase6_queries_v1.json`. Không tune bằng holdout.
+Điền `baseline_results` từ một frozen Phase 5 run và `expected_video_ids` đã chấm tay trong `benchmarks/phase6_queries_v1.json`. Không tune bằng holdout. Seed config được version hóa tại `configs/phase6_reranker_v1.json`.
+
+Tune chỉ trên development:
+
+```bash
+python tools/phase6_tune.py \
+  --input benchmarks/phase6_queries_v1.json \
+  --output-config artifacts/phase6/phase6_reranker_tuned_v1.json
+```
+
+Khóa file config trên trước khi chạy holdout.
 
 ```bash
 python tools/phase6_benchmark.py \
   --input benchmarks/phase6_queries_v1.json \
-  --split development --reranker-top-n 20 \
+  --split development --config artifacts/phase6/phase6_reranker_tuned_v1.json \
   --output artifacts/phase6/development.json
 
 python tools/phase6_benchmark.py \
   --input benchmarks/phase6_queries_v1.json \
-  --split holdout --reranker-top-n 20 \
+  --split holdout --config artifacts/phase6/phase6_reranker_tuned_v1.json \
   --output artifacts/phase6/holdout.json
 ```
 
 Nếu `judged_query_count=0`, MRR phải là `null/unavailable`. Chỉ promote khi holdout Top-1 hoặc MRR tăng, latency đạt yêu cầu và manual review không phát hiện systematic regression.
+
+Chạy UI với config đã khóa:
+
+```bash
+python tools/retrieval_ui.py \
+  --registry artifacts/registry/data_registry.json \
+  --index-dir artifacts/indexes/l21_numpy \
+  --phase6-config artifacts/phase6/phase6_reranker_tuned_v1.json \
+  --groups L21 --clip-local-files-only
+```

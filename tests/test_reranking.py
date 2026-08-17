@@ -1,7 +1,8 @@
 import pytest
+import json
 
 from aic_retrieval.query_planner import RuleBasedQueryPlanner
-from aic_retrieval.reranking import RerankerConfig,rerank_video_results
+from aic_retrieval.reranking import RERANKER_VERSION,RerankerConfig,load_reranker_config,rerank_video_results
 
 
 def result(rank,video,score,ranks,evidence_text=""):
@@ -16,6 +17,7 @@ def test_reranker_promotes_aligned_evidence_and_logs_contributions():
     assert reranked[0]["pre_rerank_rank"]==2 and reranked[0]["rank"]==1
     assert reranked[0]["video_score"]==reranked[0]["post_rerank_score"]
     assert set(reranked[0]["rerank_explanation"]["contributions"]) == {"normalized_original","modality_match","lexical_evidence","planner_alignment"}
+    assert reranked[0]["rerank_explanation"]["modality_contributions"]["ocr"] > 0
 
 
 def test_reranker_only_reorders_top_n_and_is_deterministic():
@@ -29,3 +31,8 @@ def test_reranker_only_reorders_top_n_and_is_deterministic():
 def test_reranker_config_rejects_unbounded_or_negative_settings():
     with pytest.raises(ValueError): RerankerConfig(top_n=101)
     with pytest.raises(ValueError): RerankerConfig(modality_match_weight=-1)
+
+
+def test_versioned_reranker_config_roundtrip(tmp_path):
+    path=tmp_path/"config.json"; path.write_text(json.dumps({"version":RERANKER_VERSION,"config":{"top_n":10,"original_score_weight":1,"modality_match_weight":.1,"lexical_evidence_weight":.2,"planner_alignment_weight":.05}}),encoding="utf-8")
+    assert load_reranker_config(path).top_n==10

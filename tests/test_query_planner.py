@@ -21,3 +21,9 @@ def test_planner_detects_ocr_metadata_and_color_without_network():
 def test_planner_rejects_empty_query_and_caps_variants():
     with pytest.raises(ValueError,match="must not be empty"): RuleBasedQueryPlanner().plan("  ")
     assert len(RuleBasedQueryPlanner().plan('nói "a" rồi "b"',max_variants=1).variants)==1
+
+
+def test_user_can_disable_individual_variants_with_original_fallback():
+    planner=RuleBasedQueryPlanner(); plan=planner.plan('nói "xin chào"')
+    assert planner.select_variants(plan,("xin chào",)).variants == ("xin chào",)
+    assert planner.select_variants(plan,()).variants == (plan.original_query,)

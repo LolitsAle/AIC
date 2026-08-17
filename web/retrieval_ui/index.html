@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AIC Retrieval UI</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="top-header">
+        <div class="brand">
+          <span class="eyebrow">AIC 2026 · Video Retrieval</span>
+          <h1>AIC L21 Retrieval</h1>
+          <p class="brand-subtitle">Search and explore relevant moments across video keyframes</p>
+        </div>
+        <div id="health" class="health-badges" aria-live="polite">Loading index...</div>
+      </header>
+
+      <section class="search-panel" aria-labelledby="search-heading">
+        <div class="search-panel-head">
+          <div>
+            <span class="section-kicker">Retrieval workspace</span>
+            <h2 id="search-heading">Search</h2>
+          </div>
+          <div class="channel-control">
+            <span class="control-label">Search channel</span>
+            <div class="mode-tabs" role="tablist" aria-label="Search mode">
+              <button id="visual-mode-button" class="mode-button is-active" type="button" role="tab" aria-pressed="true" aria-selected="true">Visual</button>
+              <button id="metadata-mode-button" class="mode-button" type="button" role="tab" aria-pressed="false" aria-selected="false">Metadata</button>
+            </div>
+          </div>
+        </div>
+
+        <form id="search-form" class="search-form">
+          <div class="query-row">
+            <label class="query-field">
+              <span>Vietnamese query</span>
+              <input id="query" name="query" type="search" autocomplete="off" placeholder="người đang cầm điện thoại" required>
+            </label>
+            <button id="translate-button" class="secondary-button translate-button" type="button">Translate</button>
+            <label class="clip-query-field">
+              <span>Translated CLIP query</span>
+              <input id="clip-query" name="clip-query" type="search" autocomplete="off" placeholder="a person holding a phone">
+            </label>
+          </div>
+
+          <div class="config-row">
+            <div class="ranking-control">
+              <span class="control-label">Results mode</span>
+              <div id="ranking-tabs" class="ranking-tabs" role="tablist" aria-label="Visual ranking mode">
+                <button id="video-ranking-button" class="mode-button is-active" type="button" role="tab" aria-pressed="true" aria-selected="true">Video Ranking</button>
+                <button id="frame-ranking-button" class="mode-button" type="button" role="tab" aria-pressed="false" aria-selected="false">Frame Ranking</button>
+              </div>
+            </div>
+            <label class="number-field">
+              <span id="top-k-label">Top videos</span>
+              <input id="top-k" name="top-k" type="number" min="1" max="50" value="12">
+            </label>
+            <label class="number-field">
+              <span>Candidate pool</span>
+              <input id="candidate-pool" name="candidate-pool" type="number" min="1" max="200" value="40">
+            </label>
+            <button id="search-button" class="search-button" type="submit">Search <span aria-hidden="true">→</span></button>
+          </div>
+
+          <details id="structured-filters" class="structured-filters">
+            <summary>Structured Filters <span>Experimental · opt-in</span></summary>
+            <div class="structured-content">
+              <div class="structured-toolbar">
+                <label class="check-field"><input id="structured-enabled" type="checkbox"> Use experimental structured retrieval</label>
+                <label>
+                  <span>Debug preset</span>
+                  <select id="debug-mode">
+                    <option value="custom">Custom</option>
+                    <option value="clip-only">CLIP only</option>
+                    <option value="object-only">Object only</option>
+                    <option value="metadata-only">Metadata only</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </label>
+                <label><span>Fusion method</span><select id="fusion-method"><option value="rrf">RRF</option></select></label>
+              </div>
+              <div class="modality-switches" aria-label="Structured retrieval modalities">
+                <label class="check-field"><input id="enable-clip" type="checkbox" checked> CLIP</label>
+                <label class="check-field"><input id="enable-objects" type="checkbox"> Objects</label>
+                <label class="check-field"><input id="enable-attributes" type="checkbox"> Attributes</label>
+                <label class="check-field"><input id="enable-metadata" type="checkbox"> Metadata</label>
+              </div>
+              <div class="structured-groups">
+                <fieldset id="object-fields" disabled>
+                  <legend>Object evidence</legend>
+                  <label><span>Object label</span><input id="object-label" type="text" placeholder="phone / điện thoại"></label>
+                  <label><span>Minimum count</span><input id="object-min-count" type="number" min="1" value="1"></label>
+                  <label><span>Position</span><select id="object-position"><option>any</option><option>left</option><option>center</option><option>right</option><option>top</option><option>middle</option><option>bottom</option></select></label>
+                  <label><span>Minimum confidence</span><input id="object-min-confidence" type="number" min="0" max="1" step="0.1" value="0.3"></label>
+                  <label><span>Constraint mode</span><select id="object-filter-mode"><option value="soft">Soft support</option><option value="hard">Hard requirement</option></select></label>
+                </fieldset>
+                <fieldset id="attribute-fields" disabled>
+                  <legend>Attribute evidence</legend>
+                  <label><span>Color</span><input id="attribute-color" type="text" placeholder="auto from query / red"></label>
+                  <label><span>Constraint mode</span><select id="attribute-filter-mode"><option value="soft">Soft support</option><option value="hard">Hard requirement</option></select></label>
+                </fieldset>
+                <fieldset id="metadata-fields" disabled>
+                  <legend>Metadata evidence · video level</legend>
+                  <label><span>Author / Channel</span><input id="metadata-author" type="text" placeholder="60 Giây Official"></label>
+                  <label><span>Publish date</span><input id="metadata-date" type="text" placeholder="2024-08-21"></label>
+                  <label><span>Title phrase</span><input id="metadata-title" type="text" placeholder="60 Giây Sáng"></label>
+                  <label><span>Constraint mode</span><select id="metadata-filter-mode"><option value="soft">Soft support</option><option value="hard">Hard requirement</option></select></label>
+                </fieldset>
+              </div>
+              <p class="structured-note">Structured mode is experimental. Turning it off keeps the Phase 3 CLIP search path unchanged.</p>
+            </div>
+          </details>
+        </form>
+      </section>
+
+      <section class="status-row" aria-live="polite">
+        <div id="status" class="status" role="status">Ready.</div>
+        <button id="export-button" class="secondary-button" type="button" disabled>Export CSV</button>
+      </section>
+
+      <section class="workspace">
+        <section class="results-area" aria-labelledby="results-heading">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Ranked candidates</span>
+              <h2 id="results-heading">Results</h2>
+            </div>
+          </div>
+          <section id="results" class="results-grid" aria-label="Search results"></section>
+        </section>
+        <aside class="side-panel" aria-label="Pinned results and search history">
+          <span class="section-kicker">Saved workspace</span>
+          <section class="panel-section">
+            <div class="panel-head">
+              <h2>Pins <span id="pins-count" class="count-badge">0</span></h2>
+              <button id="export-pins-button" class="secondary-button small-button" type="button" disabled>Export Pins</button>
+            </div>
+            <div id="pins-list" class="compact-list"></div>
+          </section>
+          <section class="panel-section">
+            <div class="panel-head">
+              <h2>History <span id="history-count" class="count-badge">0</span></h2>
+              <button id="clear-history-button" class="secondary-button small-button" type="button">Clear</button>
+            </div>
+            <div id="history-list" class="compact-list"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <template id="result-template">
+      <article class="result-card">
+        <div class="thumb-wrap">
+          <img class="thumb" alt="">
+          <div class="missing-thumb">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5.5h16v13H4zM7 15l3.2-3.2 2.4 2.4 1.7-1.7L18 16M8.5 9.5h.01"></path>
+            </svg>
+            <strong>Preview unavailable</strong>
+            <span class="missing-detail">Keyframe image not found</span>
+          </div>
+          <span class="rank"></span>
+        </div>
+        <div class="result-body">
+          <div class="result-head">
+            <strong class="video-id"></strong>
+            <span class="score-wrap"><span class="score-label"></span>: <span class="score"></span></span>
+          </div>
+          <p class="title"></p>
+          <dl class="facts">
+            <div><dt class="keyframe-label">Keyframe</dt><dd>Frame <span class="keyframe"></span></dd></div>
+            <div><dt>Timestamp</dt><dd class="time"></dd></div>
+            <div class="matched-fact"><dt>Matched in pool</dt><dd class="matched-count"></dd></div>
+            <div><dt>Author</dt><dd class="author"></dd></div>
+            <div><dt>Date</dt><dd class="date"></dd></div>
+          </dl>
+          <div class="keywords"></div>
+          <div class="evidence-chips" aria-label="Retrieval evidence"></div>
+          <div class="review-panel">
+            <div class="card-actions">
+              <button class="pin-button secondary-button" type="button" aria-pressed="false">Pin</button>
+              <button class="open-video-button secondary-button" type="button">Open video</button>
+              <button class="explore-button secondary-button" type="button" aria-expanded="false">Explore video</button>
+              <button class="neighborhood-button secondary-button" type="button" aria-expanded="false">Neighbors</button>
+            </div>
+            <div class="explore-panel" hidden></div>
+            <div class="neighborhood-panel" hidden></div>
+            <div class="judgement-buttons" aria-label="Manual judgement">
+              <button class="judgement-button" type="button" data-judgement="good" aria-pressed="false">Good</button>
+              <button class="judgement-button" type="button" data-judgement="partial" aria-pressed="false">Partial</button>
+              <button class="judgement-button" type="button" data-judgement="bad" aria-pressed="false">Bad</button>
+            </div>
+            <label class="note-label">
+              <span>Note</span>
+              <input class="note-input" type="text" placeholder="short review note">
+            </label>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <dialog id="video-dialog" class="video-dialog" aria-labelledby="video-dialog-title">
+      <div class="video-dialog-head">
+        <div>
+          <span class="section-kicker">Raw video preview</span>
+          <h2 id="video-dialog-title">Video</h2>
+          <p id="video-dialog-meta"></p>
+        </div>
+        <button id="close-video-button" class="secondary-button small-button" type="button">Close</button>
+      </div>
+      <video id="video-player" controls preload="metadata"></video>
+    </dialog>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

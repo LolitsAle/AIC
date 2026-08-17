@@ -1,0 +1,37 @@
+# Local contest data is large and should not be committed.
+data/
+
+# Generated registries, indexes, caches, and reports that can be rebuilt.
+artifacts/
+
+# Local ML models and Hugging Face / CLIP caches. Models are provisioned per machine.
+models/
+model_cache/
+clip_cache/
+hf_cache/
+.cache/huggingface/
+**/models--openai--clip-vit-base-patch32/
+*.safetensors
+*.onnx
+*.ckpt
+*.pth
+*.pt
+
+# Python/cache/editor noise.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment files.
+.env
+.env.*
+.venv/
+venv/
+
+# OS/editor files.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -104,6 +104,14 @@
                   <label><span>OCR mode</span><select id="ocr-filter-mode"><option value="soft">Soft support</option><option value="hard">Hard requirement</option></select></label>
                   <label><span>ASR mode</span><select id="asr-filter-mode"><option value="soft">Soft support</option><option value="hard">Hard requirement</option></select></label>
                 </fieldset>
+                <fieldset id="phase6-fields" disabled>
+                  <legend>Query planner / reranker · Phase 6 opt-in</legend>
+                  <label class="check-field"><input id="enable-query-planner" type="checkbox"> Show local query plan</label>
+                  <label class="check-field"><input id="enable-reranker" type="checkbox"> Rerank Top-N</label>
+                  <label><span>Reranker Top-N</span><input id="reranker-top-n" type="number" min="1" max="50" value="20"></label>
+                  <button id="preview-query-plan" class="secondary-button" type="button">Preview plan</button>
+                  <pre id="query-plan-preview" class="query-plan-preview">Planner disabled.</pre>
+                </fieldset>
                 <fieldset id="attribute-fields" disabled>
                   <legend>Attribute evidence</legend>
                   <label><span>Color</span><input id="attribute-color" type="text" placeholder="auto from query / red"></label>

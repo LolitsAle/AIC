@@ -418,3 +418,7 @@ Quyết định P4.10: **HYBRID OPT-IN**. Implementation, API, UI và ablation p
 Phase 5 có schema, temporal mapping, SQLite FTS5 store, lexical search, OCR/ASR evidence trong structured RRF và timeline. Hai channel bị tắt mặc định và chỉ khả dụng khi truyền `--phase5-store` trỏ tới store đã build. Do checkout không chứa contest data/model và benchmark chưa được chấm tay, Phase 5 hiện giữ **opt-in**, không được coi là quality-verified.
 
 Hướng dẫn audit, pilot, build store, API/UI và benchmark nằm tại [`docs/PHASE5_TESTING.md`](docs/PHASE5_TESTING.md). Snapshot tiến độ và blocker nằm tại [`reports/Phase_5_17-08-2026_1.md`](reports/Phase_5_17-08-2026_1.md).
+
+## Phase 6 — Local Query Planner Và Top-N Reranker
+
+Phase 6 bổ sung rule-based query decomposition chạy offline, query variants có thể xem trong UI và lightweight reranker chỉ áp dụng trên Top-N candidate. Cả planner và reranker đều opt-in; khi tắt, structured retrieval giữ đường baseline Phase 5. Hướng dẫn test tự động, test tay và benchmark before/after nằm tại [`docs/PHASE6_TESTING.md`](docs/PHASE6_TESTING.md).

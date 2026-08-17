@@ -446,6 +446,16 @@ label {
   font-size: 11px;
 }
 
+.query-plan-preview {
+  grid-column: 1 / -1;
+  max-height: 180px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text-muted);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
 .ranking-tabs {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(126px, 1fr));

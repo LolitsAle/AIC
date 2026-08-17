@@ -34,6 +34,12 @@ const phase5Fields = document.querySelector("#phase5-fields");
 const ocrMinConfidenceInput = document.querySelector("#ocr-min-confidence");
 const ocrFilterModeInput = document.querySelector("#ocr-filter-mode");
 const asrFilterModeInput = document.querySelector("#asr-filter-mode");
+const phase6Fields = document.querySelector("#phase6-fields");
+const enableQueryPlannerInput = document.querySelector("#enable-query-planner");
+const enableRerankerInput = document.querySelector("#enable-reranker");
+const rerankerTopNInput = document.querySelector("#reranker-top-n");
+const previewQueryPlanButton = document.querySelector("#preview-query-plan");
+const queryPlanPreview = document.querySelector("#query-plan-preview");
 const objectFields = document.querySelector("#object-fields");
 const attributeFields = document.querySelector("#attribute-fields");
 const metadataFields = document.querySelector("#metadata-fields");
@@ -151,6 +157,9 @@ function structuredConfig() {
     ocr_min_confidence: ocrMinConfidenceInput.value,
     ocr_filter_mode: ocrFilterModeInput.value,
     asr_filter_mode: asrFilterModeInput.value,
+    enable_query_planner: enableQueryPlannerInput.checked,
+    enable_reranker: enableRerankerInput.checked,
+    reranker_top_n: rerankerTopNInput.value,
     object_label: objectLabelInput.value.trim(),
     object_min_count: objectMinCountInput.value,
     object_position: objectPositionInput.value,
@@ -175,6 +184,9 @@ function applyStructuredConfig(config = {}) {
   enableMetadataInput.checked = Boolean(config.enable_metadata);
   enableOcrInput.checked = Boolean(config.enable_ocr);
   enableAsrInput.checked = Boolean(config.enable_asr);
+  enableQueryPlannerInput.checked = Boolean(config.enable_query_planner);
+  enableRerankerInput.checked = Boolean(config.enable_reranker);
+  rerankerTopNInput.value = config.reranker_top_n || "20";
   objectLabelInput.value = config.object_label || "";
   objectMinCountInput.value = config.object_min_count || "1";
   objectPositionInput.value = config.object_position || "any";
@@ -199,7 +211,7 @@ function updateStructuredControls() {
   if (!attributeSearchAvailable && enableAttributesInput.checked) {
     enableAttributesInput.checked = false;
   }
-  for (const input of [debugModeInput, enableClipInput, enableObjectsInput, enableAttributesInput, enableMetadataInput, enableOcrInput, enableAsrInput, fusionMethodInput]) {
+  for (const input of [debugModeInput, enableClipInput, enableObjectsInput, enableAttributesInput, enableMetadataInput, enableOcrInput, enableAsrInput, enableQueryPlannerInput, enableRerankerInput, fusionMethodInput]) {
     input.disabled = !enabled;
   }
   enableObjectsInput.disabled = !enabled || !structuredSearchAvailable;
@@ -210,6 +222,8 @@ function updateStructuredControls() {
   attributeFields.disabled = !enabled || !attributeSearchAvailable || !enableAttributesInput.checked;
   metadataFields.disabled = !enabled || !enableMetadataInput.checked;
   phase5Fields.disabled = !enabled || (!enableOcrInput.checked && !enableAsrInput.checked);
+  phase6Fields.disabled = !enabled;
+  rerankerTopNInput.disabled = !enabled || !enableRerankerInput.checked;
   structuredNoteEl.textContent = structuredSearchAvailable || attributeSearchAvailable
     ? "Structured mode is experimental. Turning it off keeps the Phase 3 CLIP search path unchanged."
     : "Structured mode is experimental. Build local evidence stores or install image support before enabling extra channels.";
@@ -388,7 +402,11 @@ function renderEvidenceChips(container, result) {
     const match = item.matches?.[0];
     definitions.push({status:item.status, text:item.status === "matched" ? `${modality.toUpperCase()} #${item.rank} · ${match?.matched_text || match?.text_raw || "matched"}` : `${modality.toUpperCase()} · ${item.status}`});
   }
-  definitions.push({ status: "matched", text: `Final #${result.rank} · RRF` });
+  if (result.rerank_score !== undefined) {
+    definitions.push({status:"matched", text:`Reranked #${result.rank} · was #${result.pre_rerank_rank}`});
+  } else {
+    definitions.push({ status: "matched", text: `Final #${result.rank} · RRF` });
+  }
   for (const definition of definitions) {
     const chip = document.createElement("span");
     chip.className = `evidence-chip is-${definition.status}`;
@@ -494,6 +512,7 @@ async function runSearch(event) {
     payload.original_query = originalQuery;
     payload.clip_query = activeMode === "visual" ? query : "";
     payload.mode = payload.mode || activeMode;
+    if (payload.query_plan) renderQueryPlan(payload.query_plan, payload.reranker);
     saveHistoryItem(originalQuery, payload.clip_query, activeMode, structured.enabled ? structured : null, payload.fusion_config || null);
     renderResults(payload);
     renderHistory();
@@ -502,6 +521,33 @@ async function runSearch(event) {
   } finally {
     searchButton.disabled = false;
     searchButton.innerHTML = searchButtonLabel;
+  }
+}
+
+function renderQueryPlan(plan, reranker = null) {
+  const lines = [
+    `Modalities: ${(plan.recommended_modalities || []).join(", ")}`,
+    `Visual query: ${plan.visual_query || "-"}`,
+    `Variants: ${(plan.variants || []).join(" | ")}`,
+    `Objects: ${(plan.objects || []).join(", ") || "-"}`,
+    `Temporal: ${(plan.temporal_hints || []).join(", ") || "-"}`,
+    `Reasons: ${(plan.reasons || []).join("; ")}`,
+  ];
+  if (reranker) lines.push(`Reranker: ${reranker.version} · Top-${reranker.config.top_n}`);
+  queryPlanPreview.textContent = lines.join("\n");
+}
+
+async function previewQueryPlan() {
+  const query = queryInput.value.trim();
+  if (!query) { queryInput.focus(); return; }
+  previewQueryPlanButton.disabled = true;
+  try {
+    const plan = await fetchJson(`/api/query-plan?${new URLSearchParams({q:query}).toString()}`);
+    renderQueryPlan(plan);
+  } catch (error) {
+    queryPlanPreview.textContent = error.message;
+  } finally {
+    previewQueryPlanButton.disabled = false;
   }
 }
 
@@ -1205,6 +1251,8 @@ async function loadHealth() {
         { text: payload.attribute_search_available ? "attributes on" : "attributes off", className: payload.attribute_search_available ? "is-success" : "" },
         { text: payload.ocr_search_available ? "OCR on" : "OCR off", className: payload.ocr_search_available ? "is-success" : "" },
         { text: payload.asr_search_available ? "ASR on" : "ASR off", className: payload.asr_search_available ? "is-success" : "" },
+        { text: payload.query_planner_available ? "planner ready" : "planner off", className: payload.query_planner_available ? "is-success" : "" },
+        { text: payload.reranker_available ? "reranker ready" : "reranker off", className: payload.reranker_available ? "is-success" : "" },
         { text: translation, className: payload.translation_configured ? "is-success" : "" },
       ];
     structuredSearchAvailable = Boolean(payload.structured_search_available);
@@ -1239,6 +1287,9 @@ enableAttributesInput.addEventListener("change", () => { debugModeInput.value = 
 enableMetadataInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 enableOcrInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 enableAsrInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
+enableQueryPlannerInput.addEventListener("change", updateStructuredControls);
+enableRerankerInput.addEventListener("change", updateStructuredControls);
+previewQueryPlanButton.addEventListener("click", previewQueryPlan);
 enableClipInput.addEventListener("change", () => { debugModeInput.value = "custom"; updateStructuredControls(); });
 debugModeInput.addEventListener("change", applyDebugPreset);
 resultsEl.addEventListener("click", (event) => {

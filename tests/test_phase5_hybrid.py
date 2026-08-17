@@ -12,6 +12,7 @@ def test_ocr_channel_generates_evidence_and_rrf_rank(tmp_path):
     service=Phase5SearchService(path,refs); generator=StructuredCandidateGenerator(np.eye(2,dtype=np.float32),refs,None,[],None,service)
     query=StructuredQuery("Samsung",enable_clip=False,enable_ocr=True,clip_mode="disabled",ocr_mode="soft")
     candidates=generator.generate(query,None); ranked=rank_video_candidates(candidates,query,RrfConfig(),top_k=2)
+    assert candidates["channel_counts"] == {"clip_frames":0,"object_frames":0,"attribute_frames":0,"metadata_videos":0,"ocr_frames":1}
     assert ranked["video_results"][0]["video_id"]=="L21_V002"
     assert ranked["video_results"][0]["modality_ranks"]["ocr"]==1
     assert ranked["results"][0]["evidence"]["ocr"][0]["matched_text"]=="Samsung"

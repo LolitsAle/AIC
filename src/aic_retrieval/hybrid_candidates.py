@@ -57,7 +57,10 @@ class StructuredCandidateGenerator:
 
     def generate(self, query: StructuredQuery, query_vector: np.ndarray | None) -> dict[str, Any]:
         candidates: dict[tuple[str, int], dict[str, Any]] = {}
-        channel_counts = {"clip_frames": 0, "object_frames": 0, "attribute_frames": 0, "metadata_videos": 0, "ocr_frames": 0, "asr_segments": 0}
+        # Preserve the Phase 4 response contract when both Phase 5 channels are
+        # disabled.  Capability-specific counters are added only for channels
+        # that actually participate in this request.
+        channel_counts = {"clip_frames": 0, "object_frames": 0, "attribute_frames": 0, "metadata_videos": 0}
         hard_object_sets: list[set[tuple[str, int]]] = []
         hard_attribute_sets: list[set[tuple[str, int]]] = []
         hard_clip_keys: set[tuple[str, int]] | None = None
@@ -156,10 +159,12 @@ class StructuredCandidateGenerator:
         for modality, enabled, mode in (("ocr", query.enable_ocr, query.ocr_mode), ("asr", query.enable_asr, query.asr_mode)):
             if not enabled or mode == "disabled":
                 continue
+            count_key = "ocr_frames" if modality == "ocr" else "asr_segments"
+            channel_counts[count_key] = 0
             if self.phase5_service is None or not self.phase5_service.available:
                 raise ValueError(f"{modality} modality enabled but Phase 5 store is not configured")
             results = self.phase5_service.search_ocr(query.visual_text, query.clip_candidate_pool, query.ocr_min_confidence) if modality == "ocr" else self.phase5_service.search_asr(query.visual_text, query.clip_candidate_pool)
-            channel_counts["ocr_frames" if modality == "ocr" else "asr_segments"] = len(results)
+            channel_counts[count_key] = len(results)
             matched: set[tuple[str, int]] = set()
             for result in results:
                 if result.get("keyframe_id") is None:
